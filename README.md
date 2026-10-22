@@ -7,7 +7,7 @@ The two halves of an OAuth 2.0 authorization-code round trip that providers leav
 Every "Sign in with GitHub", "Connect Discord" or "Link your account" button is the same round trip: send the browser to the provider with a `state`, take the `code` back at a callback, swap it for a token. The provider checks its half. Yours is the `state`, and the usual hand-rolled one gets at least one of these wrong:
 
 - **A signed state is still a bearer value.** If it is not tied to the browser, an attacker starts a trip, stops at the callback, and sends the link to a victim, whose browser finishes the attacker's sign-in (login CSRF). The fix is a second half that never leaves the browser: a cookie.
-- **The state goes through somebody else's logs.** It travels through the provider, its logs and the address bar, so anything in it — an order's token, a user id — leaks. Here it carries only a nonce and a hash of what the trip is for.
+- **The state goes through somebody else's logs.** It travels through the provider, its logs and the address bar, so anything in it — an order's token, a user id — leaks. Here it carries only a nonce and a hash of what the trip is for, keyed with the PKCE verifier so a guessable value cannot be recovered from it.
 - **PKCE is optional, so it is forgotten.** A code that leaks on the way back is worth nothing without the verifier. `State::start()` makes the pair itself; the verifier only ever sits in the cookie.
 
 ## Features

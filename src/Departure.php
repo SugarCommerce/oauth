@@ -25,6 +25,8 @@ namespace SugarCommerce\OAuth;
 final readonly class Departure {
 
 	/**
+	 * Bundle the three values. Only {@see State::start()} makes one.
+	 *
 	 * @since 1.0.0
 	 *
 	 * @param string $state     For the authorize URL's `state`.

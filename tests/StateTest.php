@@ -56,6 +56,19 @@ final class StateTest extends TestCase {
 		$this->assertSame( array( 'n', 'o' ), array_keys( (array) json_decode( $payload, true ) ) );
 	}
 
+	/**
+	 * A guessable bound value (a user id) cannot be recovered from the
+	 * state by hashing candidates: the hash is keyed with the verifier,
+	 * which only the cookie holds.
+	 */
+	public function test_the_bound_value_cannot_be_guessed_from_the_state(): void {
+		$out     = $this->state()->start( '42' );
+		$payload = (array) json_decode( (string) Base64Url::decode( explode( '.', $out->state )[0] ), true );
+
+		$this->assertNotSame( substr( hash( 'sha256', 'github-join|42' ), 0, 32 ), $payload['o'] );
+		$this->assertNotNull( $this->state()->resume( $out->state, $out->cookie ) );
+	}
+
 	/* ─── Refusals ──────────────────────────────────────────────────── */
 
 	/**

@@ -1,6 +1,6 @@
 {
     "name": "sugarcommerce/oauth",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "The two halves of an OAuth 2.0 authorization-code round trip that providers leave to you: a PKCE pair (RFC 7636, S256) and a signed state bound to a cookie in the browser that started the trip, so a callback is only honoured where it began.",
     "type": "library",
     "license": "GPL-2.0-or-later",

@@ -25,6 +25,8 @@ namespace SugarCommerce\OAuth;
 final readonly class Trip {
 
 	/**
+	 * Bundle a matched trip. Only {@see State::resume()} makes one.
+	 *
 	 * @since 1.0.0
 	 *
 	 * @param string                         $bind     The value the trip was

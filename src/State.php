@@ -30,9 +30,11 @@ use SugarCommerce\SignedTokens\{Token, TokenSigner};
  *   whose browser then finishes the attacker's sign-in. Without the
  *   victim's cookie the state is refused.
  * - **Leaking what the trip is for.** The state carries only a nonce and a
- *   hash of the value it is bound to (an order's download token, a user
- *   id), never the value, so nothing private passes through the provider,
- *   its logs or the address bar. The value, the PKCE verifier and anything
+ *   keyed hash of the value it is bound to (an order's download token, a
+ *   user id), never the value, so nothing private passes through the
+ *   provider, its logs or the address bar. The hash is keyed with the PKCE
+ *   verifier, which only the cookie holds, so a guessable value such as a
+ *   user id cannot be recovered from the state by hashing candidates. The value, the PKCE verifier and anything
  *   else the callback needs ride in the cookie.
  * - **Moving a state between trips.** The nonce must match, and the hash
  *   in the state must be the hash of the value in the cookie.
@@ -54,6 +56,8 @@ final readonly class State {
 	private const array RESERVED = array( 'n', 't', 'v' );
 
 	/**
+	 * Set up trips of one kind.
+	 *
 	 * @since 1.0.0
 	 *
 	 * @param TokenSigner $signer    Signs both halves.
@@ -106,7 +110,7 @@ final readonly class State {
 		$nonce = bin2hex( random_bytes( 16 ) );
 
 		return new Departure(
-			$this->signer->sign( $this->namespace, array( 'n' => $nonce, 'o' => $this->binding( $bind ) ), $this->ttl ),
+			$this->signer->sign( $this->namespace, array( 'n' => $nonce, 'o' => $this->binding( $bind, $pkce['verifier'] ) ), $this->ttl ),
 			$this->signer->sign( $this->cookie_namespace(), array( 'n' => $nonce, 't' => $bind, 'v' => $pkce['verifier'] ) + $private, $this->ttl ),
 			$pkce['challenge'],
 		);
@@ -136,31 +140,41 @@ final readonly class State {
 			return null;
 		}
 
-		$bind  = (string) $trip->get( 't' );
-		$nonce = (string) $trip->get( 'n' );
+		$bind     = (string) $trip->get( 't' );
+		$nonce    = (string) $trip->get( 'n' );
+		$verifier = (string) $trip->get( 'v' );
 
-		if ( '' === $bind || '' === $nonce || ! hash_equals( $nonce, (string) $from->get( 'n' ) ) || ! hash_equals( $this->binding( $bind ), (string) $from->get( 'o' ) ) ) {
+		if ( '' === $bind || '' === $nonce || '' === $verifier || ! hash_equals( $nonce, (string) $from->get( 'n' ) ) || ! hash_equals( $this->binding( $bind, $verifier ), (string) $from->get( 'o' ) ) ) {
 			return null;
 		}
 
-		return new Trip( $bind, (string) $trip->get( 'v' ), array_diff_key( $trip->payload, array_flip( self::RESERVED ) ) );
+		return new Trip( $bind, $verifier, array_diff_key( $trip->payload, array_flip( self::RESERVED ) ) );
 	}
 
 	/**
 	 * What ties a state to its bound value without carrying the value.
 	 *
-	 * @param string $bind The bound value.
+	 * An HMAC keyed with the trip's PKCE verifier: the verifier lives only
+	 * in the cookie, so whoever sees the state (the provider, its logs, the
+	 * address bar) cannot test guesses of the bound value against it.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $bind     The bound value.
+	 * @param string $verifier The trip's PKCE verifier, used as the key.
 	 *
 	 * @return string 32 hex characters.
 	 */
-	private function binding( #[\SensitiveParameter] string $bind ): string {
-		return substr( hash( 'sha256', $this->namespace . '|' . $bind ), 0, 32 );
+	private function binding( #[\SensitiveParameter] string $bind, #[\SensitiveParameter] string $verifier ): string {
+		return substr( hash_hmac( 'sha256', $this->namespace . '|' . $bind, $verifier ), 0, 32 );
 	}
 
 	/**
 	 * The cookie's namespace.
 	 *
-	 * @return string
+	 * @since 1.0.0
+	 *
+	 * @return string The trip's namespace plus "-cookie".
 	 */
 	private function cookie_namespace(): string {
 		return $this->namespace . '-cookie';
